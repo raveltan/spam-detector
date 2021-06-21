@@ -18,6 +18,10 @@ embeddingDim = 64
 trainingRatio = 0.8
 dataset = pd.read_csv("result-clean.csv")
 
+# Split data by library
+x_train,x_test,y_train,y_test = train_test_split(dataset['Teks'],dataset['label'],test_size=0.33,random_state=42)
+# do somote
+
 # Splitting dataset into training and evaluating
 trainSize = int(len(dataset) * trainingRatio)
 trainingIndexes = [i for i in range(len(dataset))]
