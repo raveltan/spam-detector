@@ -5,12 +5,11 @@ from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pickle
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.utils import class_weight
 from sklearn.metrics import roc_curve,classification_report
+from imblearn.over_sampling import SMOTE
 import matplotlib.pyplot as plt
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.pipeline import make_pipeline
 
 
 # 0 = Normal text, 1 = Spam, 2 = Promotionals, 3 = OTP
@@ -25,6 +24,7 @@ embeddingDim = 64
 trainingRatio = 0.2
 dataset = pd.read_csv("result-clean.csv")
 rocDataset = pd.read_csv("result-clean2.csv")
+oversampler = SMOTE(k_neighbors = 3)
 
 # Split data by library
 trainingSentences,valSentences,trainingLabels,valLabels = train_test_split(dataset['Teks'],dataset['label'],test_size=trainingRatio,random_state=42)
@@ -47,6 +47,11 @@ word_index = tokenizer.word_index
 # Putting tokens into sequences
 trainingSequences = tokenizer.texts_to_sequences(trainingSentences)
 trainingPadded = np.array(pad_sequences(trainingSequences,maxlen = maxLength, padding = paddingType, truncating = truncateType))
+trainingPadded, trainingLabels = oversampler.fit_resample(trainingPadded,trainingLabels)
+trainingPadded = pd.DataFrame(trainingPadded)
+trainingPadded.to_csv('trainingPadded.csv')
+trainingLabels = pd.DataFrame(trainingLabels)
+trainingLabels.to_csv('trainingLabels.csv')
 valSequences = tokenizer.texts_to_sequences(valSentences)
 valPadded = np.array(pad_sequences(valSequences,maxlen = maxLength, padding = paddingType, truncating = truncateType))
 
@@ -59,8 +64,8 @@ model = tf.keras.Sequential([
 ])
 
 model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-num_epochs = 6
-history = model.fit(trainingPadded, trainingLabels, epochs=num_epochs, validation_data=(valPadded, valLabels), class_weight=weights)
+num_epochs = 10
+history = model.fit(trainingPadded, trainingLabels, epochs=num_epochs, validation_data=(valPadded, valLabels),class_weight=weights)
 
 # Uncomment to run evaluation and print classification reports on test dataset
 evalDataset = pd.read_csv("new.csv")
@@ -68,12 +73,33 @@ evalFeatures = np.array(evalDataset['Teks'])
 evalLabels = np.array(evalDataset['label'])
 evalSequences = tokenizer.texts_to_sequences(evalFeatures)
 evalPadded = np.array(pad_sequences(evalSequences,maxlen=maxLength,padding=paddingType))
-model.evaluate(evalPadded,evalLabels)
+evalPadded, evalLabels = oversampler.fit_resample(evalPadded,evalLabels)
+evalPadded = pd.DataFrame(evalPadded)
+evalPadded.to_csv("evalPadded.csv")
+evalLabels = pd.DataFrame(evalLabels)
+evalLabels.to_csv("evalLabels.csv")
+
+# Create Naive-Bayes model and print classification report on test dataset for comparison
+trainingVectors = pd.read_csv("trainingPadded.csv")
+trainingLabels = pd.read_csv("trainingLabels.csv")
+evalVectors = pd.read_csv("evalPadded.csv")
+evalLabels = pd.read_csv('evalLabels.csv')
+trainingLabels = trainingLabels.iloc[:,1]
+trainingVectors = trainingVectors.iloc[:,1:]
+evalLabels = evalLabels.iloc[:,1]
+evalVectors = evalVectors.iloc[:,1:]
+NBModel = MultinomialNB()
+NBModel.fit(trainingVectors,trainingLabels)
+NBPreds = NBModel.predict(evalVectors)
+
 evalPred = model.predict(evalPadded)
 evalPredNew = []
 for i in evalPred:
     evalPredNew.append(np.argmax(i))
+print("\nBidirectional LSTM Classification Report")
 print(classification_report(evalLabels,evalPredNew))
+print("\nNaive-Bayes classifier Classification Report")
+print(classification_report(evalLabels,NBPreds))
 
 # Uncomment the following blocks of code to generate graph
 # # Plot for accuracy
@@ -95,26 +121,34 @@ plt.xlabel('epoch')
 plt.legend()
 
 # # Plot for ROC
-rocEvalDataset = pd.read_csv("new2.csv")
-rocLSTMModel = tf.keras.models.load_model('my_model2.h5')
-rocFeatures = np.array(rocEvalDataset['Teks'])
-rocLabels = np.array(rocEvalDataset['label'])
-rocLSTMSequences = tokenizer.texts_to_sequences(rocFeatures)
-rocLSTMPadded = np.array(pad_sequences(rocLSTMSequences,maxlen=maxLength,padding=paddingType))
-rocLSTMPreds = rocLSTMModel.predict(rocLSTMPadded,verbose = 1)
-LSTMPredsNew = []
-for i in rocLSTMPreds:
-    LSTMPredsNew.append(i[1])
-LSTMFPR,LSTMTPR,LSTMThreshold = roc_curve(rocLabels, LSTMPredsNew)
+binaryEvalDataset = pd.read_csv("new2.csv")
+binaryLSTMModel = tf.keras.models.load_model('my_model2.h5')
+binaryFeatures = np.array(binaryEvalDataset['Teks'])
+binaryLabels = np.array(binaryEvalDataset['label'])
+binarySequences = tokenizer.texts_to_sequences(binaryFeatures)
+binaryPadded = np.array(pad_sequences(binarySequences,maxlen=maxLength,padding=paddingType))
+binaryPadded, binaryLabels = oversampler.fit_resample(binaryPadded, binaryLabels)
 
-# Defining Naive-Bayes classifier
-rocNBModel = make_pipeline(TfidfVectorizer(),MultinomialNB())
-rocNBModel.fit(rocDataset['Teks'],rocDataset['label'])
-rocNBPreds = rocNBModel.predict_proba(rocFeatures)
+binaryPreds = binaryLSTMModel.predict(binaryPadded)
+LSTMPredsNew = []
+for i in binaryPreds:
+    LSTMPredsNew.append(i[1])
+LSTMFPR,LSTMTPR,LSTMThreshold = roc_curve(binaryLabels, LSTMPredsNew)
+
+# Defining binary Naive-Bayes classifier for ROC
+trainingVectors = pd.read_csv("trainingPadded2.csv")
+trainingLabels = pd.read_csv("trainingLabels2.csv")
+trainingLabels = trainingLabels.iloc[:,1]
+trainingVectors = trainingVectors.iloc[:,1:]
+
+binaryNBModel = MultinomialNB()
+binaryNBModel.fit(trainingVectors,trainingLabels)
+
+binaryPreds = binaryNBModel.predict_proba(binaryPadded)
 NBPredsNew = []
-for i in rocNBPreds:
+for i in binaryPreds:
     NBPredsNew.append(i[1])
-NBFPR,NBTPR,NBThreshold = roc_curve(rocLabels, NBPredsNew)
+NBFPR,NBTPR,NBThreshold = roc_curve(binaryLabels,NBPredsNew)
 
 plt.subplot(1,3,3)
 plt.plot([0, 1], [0, 1], 'k--')
@@ -131,7 +165,7 @@ plt.show()
 
 # with open('tokenizer.pickle', 'wb') as handle:
 #     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
-#model.save("my_model.h5")
+# model.save("my_model.h5")
 
 # while True:
 #     testA = input(">")
