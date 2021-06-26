@@ -6,8 +6,8 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pickle
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
-from sklearn.metrics import roc_curve,classification_report
-from imblearn.over_sampling import SMOTE
+from sklearn.metrics import roc_curve,classification_report,accuracy_score
+from imblearn.over_sampling import RandomOverSampler,SMOTE
 import matplotlib.pyplot as plt
 from sklearn.naive_bayes import MultinomialNB
 
@@ -21,17 +21,14 @@ paddingType = "post"
 truncateType = "post"
 maxLength = 100
 embeddingDim = 64
-trainingRatio = 0.2
-dataset = pd.read_csv("result-clean.csv")
+trainingRatio = 0.3
+dataset = pd.read_csv("combined.csv")
 rocDataset = pd.read_csv("result-clean2.csv")
-oversampler = SMOTE(k_neighbors = 3)
+oversampler = RandomOverSampler()
 
 # Split data by library
-trainingSentences,valSentences,trainingLabels,valLabels = train_test_split(dataset['Teks'],dataset['label'],test_size=trainingRatio,random_state=42)
-trainingSentences = np.array(trainingSentences)
-trainingLabels = np.array(trainingLabels)
-valSentences = np.array(valSentences)
-valLabels = np.array(valLabels)
+pretrainingSentences,evalSentences,pretrainingLabels,evalLabels = train_test_split(dataset['Teks'],dataset['label'],test_size=trainingRatio,random_state=42)
+trainingSentences, valSentences,trainingLabels, valLabels = train_test_split(pretrainingSentences, pretrainingLabels,test_size = 0.2,random_state = 42)
 
 class_weights = list(class_weight.compute_class_weight('balanced', np.unique(dataset['label']),dataset['label']))
 class_weights.sort()
@@ -48,10 +45,6 @@ word_index = tokenizer.word_index
 trainingSequences = tokenizer.texts_to_sequences(trainingSentences)
 trainingPadded = np.array(pad_sequences(trainingSequences,maxlen = maxLength, padding = paddingType, truncating = truncateType))
 trainingPadded, trainingLabels = oversampler.fit_resample(trainingPadded,trainingLabels)
-trainingPadded = pd.DataFrame(trainingPadded)
-trainingPadded.to_csv('trainingPadded.csv')
-trainingLabels = pd.DataFrame(trainingLabels)
-trainingLabels.to_csv('trainingLabels.csv')
 valSequences = tokenizer.texts_to_sequences(valSentences)
 valPadded = np.array(pad_sequences(valSequences,maxlen = maxLength, padding = paddingType, truncating = truncateType))
 
@@ -66,40 +59,20 @@ model = tf.keras.Sequential([
 model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 num_epochs = 10
 history = model.fit(trainingPadded, trainingLabels, epochs=num_epochs, validation_data=(valPadded, valLabels),class_weight=weights)
+# model = tf.keras.models.load_model('my_model.h5')
 
 # Uncomment to run evaluation and print classification reports on test dataset
-evalDataset = pd.read_csv("new.csv")
-evalFeatures = np.array(evalDataset['Teks'])
-evalLabels = np.array(evalDataset['label'])
-evalSequences = tokenizer.texts_to_sequences(evalFeatures)
+evalSequences = tokenizer.texts_to_sequences(evalSentences)
 evalPadded = np.array(pad_sequences(evalSequences,maxlen=maxLength,padding=paddingType))
 evalPadded, evalLabels = oversampler.fit_resample(evalPadded,evalLabels)
-evalPadded = pd.DataFrame(evalPadded)
-evalPadded.to_csv("evalPadded.csv")
-evalLabels = pd.DataFrame(evalLabels)
-evalLabels.to_csv("evalLabels.csv")
-
-# Create Naive-Bayes model and print classification report on test dataset for comparison
-trainingVectors = pd.read_csv("trainingPadded.csv")
-trainingLabels = pd.read_csv("trainingLabels.csv")
-evalVectors = pd.read_csv("evalPadded.csv")
-evalLabels = pd.read_csv('evalLabels.csv')
-trainingLabels = trainingLabels.iloc[:,1]
-trainingVectors = trainingVectors.iloc[:,1:]
-evalLabels = evalLabels.iloc[:,1]
-evalVectors = evalVectors.iloc[:,1:]
-NBModel = MultinomialNB()
-NBModel.fit(trainingVectors,trainingLabels)
-NBPreds = NBModel.predict(evalVectors)
-
 evalPred = model.predict(evalPadded)
 evalPredNew = []
 for i in evalPred:
     evalPredNew.append(np.argmax(i))
 print("\nBidirectional LSTM Classification Report")
 print(classification_report(evalLabels,evalPredNew))
-print("\nNaive-Bayes classifier Classification Report")
-print(classification_report(evalLabels,NBPreds))
+acc = accuracy_score(evalLabels,evalPredNew)
+print("Average accuracy: " + str(acc))
 
 # Uncomment the following blocks of code to generate graph
 # # Plot for accuracy
@@ -165,7 +138,8 @@ plt.show()
 
 # with open('tokenizer.pickle', 'wb') as handle:
 #     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
-# model.save("my_model.h5")
+if acc > 0.93:
+    model.save("my_model.h5")
 
 # while True:
 #     testA = input(">")

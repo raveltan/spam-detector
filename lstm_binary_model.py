@@ -6,7 +6,7 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
 import pickle
 from sklearn.utils import class_weight
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import RandomOverSampler
 
 # 0 = Normal text, 1 = Spam, 2 = Promotionals, 3 = OTP
 
@@ -19,7 +19,7 @@ maxLength = 100
 embeddingDim = 64
 trainingRatio = 0.2
 dataset = pd.read_csv("result-clean2.csv")
-oversampler = SMOTE(k_neighbors = 3)
+oversampler = RandomOverSampler()
 
 # Split data by library
 trainingSentences,valSentences,trainingLabels,valLabels = train_test_split(dataset['Teks'],dataset['label'],test_size=trainingRatio,random_state=42)
@@ -64,10 +64,7 @@ num_epochs = 6
 print(len(trainingPadded),len(trainingLabels),len(valPadded),len(valLabels),weights)
 model.fit(trainingPadded, trainingLabels, epochs=num_epochs, validation_data=(valPadded, valLabels), class_weight=weights)
 
-#model.save("my_model2.h5")
-model = tf.keras.models.load_model('my_model2.h5')
-with open('tokenizer.pickle', 'rb') as handle:
-    tokenizer = pickle.load(handle)
+model.save("my_model2.h5")
 
 # Evaluation
 evalDataset = pd.read_csv("new2.csv")
