@@ -76,61 +76,63 @@ print("Average accuracy: " + str(acc))
 
 # Uncomment the following blocks of code to generate graph
 # # Plot for accuracy
-plt.subplot(1,3,1)
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title('model accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'eval'], loc='upper left')
-
+fig = plt.figure()
+acc = fig.add_subplot(1,2,1)
+acc.plot(history.history['accuracy'])
+acc.plot(history.history['val_accuracy'])
+acc.set_aspect(1.0/acc.get_data_ratio())
+acc.set_title('model accuracy')
+acc.set_ylabel('accuracy')
+acc.set_xlabel('epoch')
+acc.legend(['train', 'eval'], loc='upper left')
 # # Plot for loss
-plt.subplot(1,3,2)
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('model loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend()
+loss = fig.add_subplot(1,2,2)
+loss.plot(history.history['loss'])
+loss.plot(history.history['val_loss'])
+loss.set_aspect(1.0/loss.get_data_ratio())
+loss.set_title('model loss')
+loss.set_ylabel('loss')
+loss.set_xlabel('epoch')
+fig.show()
 
 # # Plot for ROC
-binaryEvalDataset = pd.read_csv("new2.csv")
-binaryLSTMModel = tf.keras.models.load_model('my_model2.h5')
-binaryFeatures = np.array(binaryEvalDataset['Teks'])
-binaryLabels = np.array(binaryEvalDataset['label'])
-binarySequences = tokenizer.texts_to_sequences(binaryFeatures)
-binaryPadded = np.array(pad_sequences(binarySequences,maxlen=maxLength,padding=paddingType))
-binaryPadded, binaryLabels = oversampler.fit_resample(binaryPadded, binaryLabels)
+# binaryEvalDataset = pd.read_csv("new2.csv")
+# binaryLSTMModel = tf.keras.models.load_model('my_model2.h5')
+# binaryFeatures = np.array(binaryEvalDataset['Teks'])
+# binaryLabels = np.array(binaryEvalDataset['label'])
+# binarySequences = tokenizer.texts_to_sequences(binaryFeatures)
+# binaryPadded = np.array(pad_sequences(binarySequences,maxlen=maxLength,padding=paddingType))
+# binaryPadded, binaryLabels = oversampler.fit_resample(binaryPadded, binaryLabels)
 
-binaryPreds = binaryLSTMModel.predict(binaryPadded)
-LSTMPredsNew = []
-for i in binaryPreds:
-    LSTMPredsNew.append(i[1])
-LSTMFPR,LSTMTPR,LSTMThreshold = roc_curve(binaryLabels, LSTMPredsNew)
+# binaryPreds = binaryLSTMModel.predict(binaryPadded)
+# LSTMPredsNew = []
+# for i in binaryPreds:
+#     LSTMPredsNew.append(i[1])
+# LSTMFPR,LSTMTPR,LSTMThreshold = roc_curve(binaryLabels, LSTMPredsNew)
 
-# Defining binary Naive-Bayes classifier for ROC
-trainingVectors = pd.read_csv("trainingPadded2.csv")
-trainingLabels = pd.read_csv("trainingLabels2.csv")
-trainingLabels = trainingLabels.iloc[:,1]
-trainingVectors = trainingVectors.iloc[:,1:]
+# # Defining binary Naive-Bayes classifier for ROC
+# trainingVectors = pd.read_csv("trainingPadded2.csv")
+# trainingLabels = pd.read_csv("trainingLabels2.csv")
+# trainingLabels = trainingLabels.iloc[:,1]
+# trainingVectors = trainingVectors.iloc[:,1:]
 
-binaryNBModel = MultinomialNB()
-binaryNBModel.fit(trainingVectors,trainingLabels)
+# binaryNBModel = MultinomialNB()
+# binaryNBModel.fit(trainingVectors,trainingLabels)
 
-binaryPreds = binaryNBModel.predict_proba(binaryPadded)
-NBPredsNew = []
-for i in binaryPreds:
-    NBPredsNew.append(i[1])
-NBFPR,NBTPR,NBThreshold = roc_curve(binaryLabels,NBPredsNew)
+# binaryPreds = binaryNBModel.predict_proba(binaryPadded)
+# NBPredsNew = []
+# for i in binaryPreds:
+#     NBPredsNew.append(i[1])
+# NBFPR,NBTPR,NBThreshold = roc_curve(binaryLabels,NBPredsNew)
 
-plt.subplot(1,3,3)
-plt.plot([0, 1], [0, 1], 'k--')
-plt.plot(LSTMFPR, LSTMTPR, label='LSTM')
-plt.plot(NBFPR, NBTPR, label='Naive-Bayes')
-plt.xlabel('False positive rate')
-plt.ylabel('True positive rate')
-plt.title('ROC curve')
-plt.legend(loc='best')
+# plt.subplot(1,3,3)
+# plt.plot([0, 1], [0, 1], 'k--')
+# plt.plot(LSTMFPR, LSTMTPR, label='LSTM')
+# plt.plot(NBFPR, NBTPR, label='Naive-Bayes')
+# plt.xlabel('False positive rate')
+# plt.ylabel('True positive rate')
+# plt.title('ROC curve')
+# plt.legend(loc='best')
 plt.show()
 
 # Below are the code used to save the model trained from running this code
