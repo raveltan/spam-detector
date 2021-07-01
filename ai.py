@@ -71,28 +71,30 @@ for i in evalPred:
     evalPredNew.append(np.argmax(i))
 print("\nBidirectional LSTM Classification Report")
 print(classification_report(evalLabels,evalPredNew))
-acc = accuracy_score(evalLabels,evalPredNew)
-print("Average accuracy: " + str(acc))
+accuracy = accuracy_score(evalLabels,evalPredNew)
+print("Average accuracy: " + str(accuracy))
 
 # Uncomment the following blocks of code to generate graph
 # # Plot for accuracy
+plt.rc('xtick', labelsize = 12)
+plt.rc('ytick',labelsize = 12)
 fig = plt.figure()
 acc = fig.add_subplot(1,2,1)
 acc.plot(history.history['accuracy'])
 acc.plot(history.history['val_accuracy'])
 acc.set_aspect(1.0/acc.get_data_ratio())
-acc.set_title('model accuracy')
-acc.set_ylabel('accuracy')
-acc.set_xlabel('epoch')
-acc.legend(['train', 'eval'], loc='upper left')
+acc.set_title('model accuracy',fontsize= 15)
+acc.set_ylabel('accuracy',fontsize = 15)
+acc.set_xlabel('epoch', fontsize = 15)
+acc.legend(['train', 'eval'], loc='upper left',fontsize = 12)
 # # Plot for loss
 loss = fig.add_subplot(1,2,2)
 loss.plot(history.history['loss'])
 loss.plot(history.history['val_loss'])
 loss.set_aspect(1.0/loss.get_data_ratio())
-loss.set_title('model loss')
-loss.set_ylabel('loss')
-loss.set_xlabel('epoch')
+loss.set_title('model loss',fontsize = 15)
+loss.set_ylabel('loss',fontsize = 15)
+loss.set_xlabel('epoch',fontsize=15)
 fig.show()
 
 # # Plot for ROC
@@ -140,7 +142,7 @@ plt.show()
 
 # with open('tokenizer.pickle', 'wb') as handle:
 #     pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
-if acc > 0.93:
+if accuracy > 0.93:
     model.save("my_model.h5")
 
 # while True:
